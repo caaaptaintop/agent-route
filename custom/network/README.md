@@ -14,7 +14,7 @@
 | `route.template.js` | 完整的Clash Verge局部Script候选；基础AgentRoute分流、AI可信节点绑定、DNS分层、三款浏览器UDP规则 |
 | `prepare.js` | 离线参数化工具；使用本机home生成路径，从显式核实的节点建立本地指纹，生成候选但不安装 |
 | `settings.example.json` | 无凭据的macOS设置示例 |
-| `test.js`、`test_prepare.js`、`test_scope.js`、`test_groups.js` | 合成节点安全回归、跨home路径/输出保护及四类AI分流反例 |
+| `test.js`、`test_prepare.js`、`test_scope.js`、`test_groups.js`、`test_dns_exception.js` | 合成节点安全回归、跨home路径/输出保护及四类AI分流反例 |
 | [恢复与验收](恢复与验收.md) | 换电脑、重装系统或Clash后的恢复顺序、真实验证边界 |
 | [同步上游](同步上游.md) | 源码同步、规则数据更新与生产部署的区别 |
 | `AGENTS.md` | 维护此目录的范围、验证命令与发布约束 |
@@ -32,6 +32,8 @@
 7. Google Drive及其他普通Google业务不因`googleapis.com`总后缀进入专线；脚本没有这种总后缀规则。部分OpenAI/ChatGPT、Vertex及cloudcode服务跨产品共享端点，不能按加密URL区分所有使用者；Vertex地区API仅列入明确端点，未来/其他地区需核验补齐。
 8. 默认应用路径在`/Applications`，原生CLI按home参数化。其他目录、安装方式、OS或新增子进程需再适配。无生效规则/有效依赖的旧业务组与包装组会自动删除；按主代理、AI组和全部节点dialer引用递归保留有用组，不按品牌名盲删地区组，也不删除节点。
 
+单域名DNS兼容例外：`mohurd.gov.cn`及子域使用境内加密DNS。2026-11-01实测默认Cloudflare对该域返回SERVFAIL，而境内解析成功；只加DNS策略，不新增流量规则、不硬编码CDN地址，也不扩大到整个gov.cn。实际出站仍由既有规则决定。
+
 规则provider仍指向**上游**的`release/mihomo/`，设为每86400秒刷新。此Fork尚不作为规则数据发布源；复制Fork仓库不等于Fork已有可用的release数据，也不等于本机自动使用此分支。
 
 ## 本机离线准备
@@ -43,6 +45,7 @@ node custom/network/test_prepare.js
 node custom/network/test.js
 node custom/network/test_scope.js
 node custom/network/test_groups.js
+node custom/network/test_dns_exception.js
 ```
 
 下列命令只说明接口，不应将占位路径直接当作本机路径。可让Agent根据实际设备准备仓库外目录，不要求用户记住命令。

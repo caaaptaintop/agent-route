@@ -194,6 +194,9 @@ function arApply(input, pins) {
   var policy = {};
   AR_AI_DOMAINS.forEach(function(d) { policy['+.' + d] = doh(AR_AI_GROUP); });
   AR_DIRECT_DOMAINS.forEach(function(d) { policy['+.' + d] = directDNS; });
+  // Cloudflare returns SERVFAIL for this zone; AliDNS resolves it. Keep the
+  // exception DNS-only: existing cn-ip routing decides the actual outbound.
+  policy['+.mohurd.gov.cn'] = directDNS;
   // Explicit service suffix policies take precedence over domain rule-set policies.
   policy['+.lan'] = ['system']; policy['+.local'] = ['system']; policy['+.home.arpa'] = ['system'];
   policy['rule-set:sr-private'] = ['system'];

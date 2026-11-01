@@ -22,6 +22,7 @@ node custom/network/test_prepare.js
 node custom/network/test.js
 node custom/network/test_scope.js
 node custom/network/test_groups.js
+node custom/network/test_dns_exception.js
 ```
 
 测试使用合成节点与虚构home，禁止引入生产缓存；新增功能先写反例。上游源码变更另运行根维护说明要求的测试/契约与原生验证。文件检查、生成成功、规则加载、真实网络、真实App、跨设备恢复是不同验收层次。
