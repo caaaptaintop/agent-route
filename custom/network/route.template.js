@@ -5,23 +5,37 @@
 // Digests cover credentials and protocol options without embedding either in the script.
 var AR_PINNED_NODES = /* PINNED_NODES */ [];
 var AR_AI_GROUP = 'AI-Claude-Codex-IPEqual';
+// Dedicated egress is limited to Claude, Codex/OpenAI, Gemini and Antigravity.
+// OpenAI endpoints are shared with ChatGPT; Vertex endpoints may serve non-Gemini
+// models. TLS service/path sharing cannot be distinguished by these domain rules.
 var AR_AI_DOMAINS = [
   'openai.com', 'chatgpt.com', 'oaistatic.com', 'oaiusercontent.com',
   'chat.openai.com.auth0.com', 'anthropic.com', 'claude.ai', 'claude.com', 'claudeusercontent.com',
   'gemini.google.com', 'aistudio.google.com', 'ai.google.dev', 'makersuite.google.com',
-  'generativelanguage.googleapis.com', 'aiplatform.googleapis.com', 'aisandbox-pa.googleapis.com',
-  'alkalimakersuite-pa.clients6.google.com', 'labs.google', 'notebooklm.google.com', 'notebooklm.google',
-  'grok.com', 'x.ai', 'perplexity.ai', 'pplx.ai',
-  'githubcopilot.com', 'copilot-proxy.githubusercontent.com', 'copilot.microsoft.com',
-  'cursor.com', 'cursor.sh', 'cursorapi.com', 'windsurf.com', 'codeium.com', 'codeiumdata.com',
-  'openrouter.ai', 'poe.com', 'deepseek.com', 'kimi.com', 'kimi.ai', 'moonshot.cn', 'moonshot.ai',
-  'qwen.ai', 'chat.qwenlm.ai', 'dashscope.aliyuncs.com', 'dashscope-intl.aliyuncs.com',
-  'doubao.com', 'ark.cn-beijing.volces.com', 'bigmodel.cn', 'z.ai', 'chatglm.cn',
-  'minimax.io', 'minimaxi.com', 'api.minimax.chat', 'huggingface.co', 'hf.co',
-  'replicate.com', 'replicate.delivery', 'fal.ai', 'fal.run', 'midjourney.com',
-  'suno.com', 'suno.ai', 'elevenlabs.io', 'runwayml.com', 'sora.com'
+  'generativelanguage.googleapis.com', 'aiplatform.googleapis.com',
+  'us-central1-aiplatform.googleapis.com', 'alkalimakersuite-pa.clients6.google.com',
+  'geminiweb-pa.clients.google.com', 'geminiweb-pa.clients6.google.com',
+  'antigravity.google', 'antigravity-pa.googleapis.com', 'antigravity.googleapis.com',
+  'cloudcode-pa.googleapis.com', 'daily-cloudcode-pa.googleapis.com',
+  'daily-cloudcode-pa.sandbox.googleapis.com'
 ];
-// Restrict to AI application bundles, not generic node/bun or every browser.
+// Explicit domestic services plus the previously direct-listed Qwen/Z.ai hosts.
+// International API variants not listed here follow ordinary AgentRoute rules.
+var AR_DOMESTIC_AI_DOMAINS = [
+  'deepseek.com', 'kimi.com', 'kimi.ai', 'moonshot.cn', 'qwen.ai', 'chat.qwenlm.ai',
+  'qianwen.com', 'tongyi.com', 'tongyi.aliyun.com', 'qianwen.aliyun.com',
+  'dashscope.aliyuncs.com', 'doubao.com', 'ark.cn-beijing.volces.com',
+  'bigmodel.cn', 'z.ai', 'chatglm.cn', 'minimaxi.com', 'api.minimax.chat'
+];
+var AR_APPLE_DOMAINS = [
+  'apple.com', 'apple.com.cn', 'icloud.com', 'icloud.com.cn', 'cdn-apple.com',
+  'aaplimg.com', 'mzstatic.com', 'apple-cloudkit.com', 'apple-mapkit.com', 'me.com',
+  'icloud-content.com', 'applemusic.com', 'itunes.com', 'apple.news', 'apple-dns.net', 'appsto.re'
+];
+var AR_DIRECT_DOMAINS = AR_DOMESTIC_AI_DOMAINS.concat(AR_APPLE_DOMAINS);
+// Only dedicated application scopes; never all of Proma/ChatGPT/Codenotch,
+// a generic Gemini-named app, node/bun, terminals or browsers.
+// Bundle scopes are parameterized by prepare.js and require per-device validation.
 var AR_AI_PROCESS_PATHS = /* AI_PROCESS_PATHS */ [];
 
 // Browser public UDP must not fall through to ordinary domestic DIRECT rules.
@@ -179,7 +193,8 @@ function arApply(input, pins) {
   var directDNS = ['https://223.5.5.5/dns-query#DIRECT', 'https://223.6.6.6/dns-query#DIRECT'];
   var policy = {};
   AR_AI_DOMAINS.forEach(function(d) { policy['+.' + d] = doh(AR_AI_GROUP); });
-  // Explicit AI suffix policy takes precedence over domain rule-set policies.
+  AR_DIRECT_DOMAINS.forEach(function(d) { policy['+.' + d] = directDNS; });
+  // Explicit service suffix policies take precedence over domain rule-set policies.
   policy['+.lan'] = ['system']; policy['+.local'] = ['system']; policy['+.home.arpa'] = ['system'];
   policy['rule-set:sr-private'] = ['system'];
   policy['rule-set:sr-proxy'] = doh(primary);
@@ -222,6 +237,9 @@ function arApply(input, pins) {
   AR_BROWSER_UDP_PATHS.forEach(function(p) {
     add('AND,((NETWORK,UDP),(PROCESS-PATH-REGEX,' + p + ')),' + primary);
   });
+  // Keep browser public UDP protection ahead of business DIRECT exceptions.
+  // Dedicated AI process scopes above also retain priority over these exceptions.
+  AR_DIRECT_DOMAINS.forEach(function(d) { add('DOMAIN-SUFFIX,' + d + ',DIRECT'); });
   // Existing AgentRoute direct DNS/bootstrap exceptions remain intentional, not a zero-leak claim.
   ['223.5.5.5','223.6.6.6'].forEach(function(ip) { add('IP-CIDR,' + ip + '/32,DIRECT,no-resolve'); });
   ['1.1.1.1','1.0.0.1'].forEach(function(ip) { add('IP-CIDR,' + ip + '/32,' + primary + ',no-resolve'); });
@@ -231,5 +249,5 @@ function arApply(input, pins) {
   return c;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {apply: arApply, main: main, domains: AR_AI_DOMAINS, paths: AR_AI_PROCESS_PATHS, browserPaths: AR_BROWSER_UDP_PATHS, group: AR_AI_GROUP, digest: arNodeDigest, sha256: arSha256};
+  module.exports = {apply: arApply, main: main, domains: AR_AI_DOMAINS, directDomains: AR_DIRECT_DOMAINS, domesticDomains: AR_DOMESTIC_AI_DOMAINS, appleDomains: AR_APPLE_DOMAINS, paths: AR_AI_PROCESS_PATHS, browserPaths: AR_BROWSER_UDP_PATHS, group: AR_AI_GROUP, digest: arNodeDigest, sha256: arSha256};
 }

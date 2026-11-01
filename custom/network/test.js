@@ -88,8 +88,8 @@ test('主代理成员与可用手选名称保留；不冒充真实持久选择�
 });
 test('进程范围局限AI应用，不捕获所有浏览器/node/bun',()=>{
  const patterns=paths.map(p=>new RegExp(p));
- for(const p of ['/usr/local/bin/node','/usr/local/bin/bun','/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'])assert(!patterns.some(r=>r.test(p)));
- for(const p of ['/Applications/Proma.app/Contents/MacOS/Proma','/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex','/__test_home__/.cache/magpie/bun/1.4.4/magpie-bun'])assert(patterns.some(r=>r.test(p)));
+ for(const p of ['/usr/local/bin/node','/usr/local/bin/bun','/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/Applications/Proma.app/Contents/MacOS/Proma','/Applications/Grok Bot.app/Contents/MacOS/Grok Bot','/__test_home__/.cache/magpie/bun/1.4.4/magpie-bun'])assert(!patterns.some(r=>r.test(p)));
+ for(const p of ['/Applications/Claude.app/Contents/MacOS/Claude','/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex'])assert(patterns.some(r=>r.test(p)));
 });
 test('完整覆写重复执行幂等',()=>{
  const a=apply(fixture(),pins),b=apply(a,pins),d=apply(b,pins);assert.deepEqual(a,b);assert.deepEqual(b,d);

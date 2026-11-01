@@ -26,10 +26,12 @@ function scopes(home) {
   const h = escapeRegex(home.replace(/\/$/, ''));
   return {
     ai: [
-      '^/Applications/(Proma|ChatGPT|ChatGPT Classic|Grok Bot|Claude)\\.app/Contents/',
+      '^/Applications/Claude\\.app/Contents/',
+      '^/Applications/ChatGPT\\.app/Contents/Resources/codex-cli/CodexCLI\\.app/Contents/',
+      '^/Applications/ChatGPT\\.app/Contents/Frameworks/Codex Framework\\.framework/Versions/[^/]+/Helpers/Codex \\(Service\\)\\.app/Contents/',
+      '^/Applications/Antigravity\\.app/Contents/',
       '^' + h + '/\\.local/(bin/claude|share/claude/versions/[0-9]+\\.[0-9]+\\.[0-9]+(-[^/]+)?)$',
-      '^' + h + '/\\.claude/downloads/claude-[0-9]+\\.[0-9]+\\.[0-9]+(-[^/]+)?-darwin-(arm64|x64)$',
-      '^' + h + '/\\.cache/magpie/bun/[^/]+/magpie-bun$'
+      '^' + h + '/\\.claude/downloads/claude-[0-9]+\\.[0-9]+\\.[0-9]+(-[^/]+)?-darwin-(arm64|x64)$'
     ],
     browser: ['^/Applications/Google Chrome\\.app/Contents/', '^/Applications/Brave Browser\\.app/Contents/', '^/Applications/Tabbit\\.app/Contents/']
   };

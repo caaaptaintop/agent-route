@@ -20,11 +20,11 @@ test('默认不携带真实节点或指纹；无可信节点时AI仅拒绝', () 
   const c = m.apply({'proxies': [node], 'proxy-groups': [{name: '主代理', type: 'select', proxies: [node.name]}]}, []);
   assert.equal(c['proxy-groups'].find(g => g.name === m.group).proxies.join(','), 'REJECT');
 });
-test('home按正则字面量转义，原生CLI和Magpie命中，不捕获通用node', () => {
+test('home按正则字面量转义，Claude/Codex命中，不捕获泛应用与通用node', () => {
   const m = inspect(render({settings, home, pins: []}));
   const hit = p => m.paths.some(x => new RegExp(x).test(p));
-  for (const p of ['/Applications/Claude.app/Contents/MacOS/Claude', home + '/.local/bin/claude', home + '/.local/share/claude/versions/2.1.0', home + '/.cache/magpie/bun/1.0/magpie-bun']) assert(hit(p));
-  for (const p of ['/usr/bin/node', '/usr/bin/bun', home + '/.local/share/claude/versions/not-version', home + '/.local/bin/claude-evil', '/__test_home__/nameXwith+[syntax]/.local/bin/claude']) assert(!hit(p));
+  for (const p of ['/Applications/Claude.app/Contents/MacOS/Claude', home + '/.local/bin/claude', home + '/.local/share/claude/versions/2.1.0', '/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)']) assert(hit(p));
+  for (const p of ['/usr/bin/node', '/usr/bin/bun', '/Applications/Proma.app/Contents/MacOS/Proma', '/Applications/Codenotch.app/Contents/MacOS/Codenotch', home + '/.cache/magpie/bun/1.0/magpie-bun', home + '/.local/share/claude/versions/not-version', home + '/.local/bin/claude-evil', '/__test_home__/nameXwith+[syntax]/.local/bin/claude']) assert(!hit(p));
 });
 test('路径不包含真实使用者或上一个设备的信息', () => {
   const m = inspect(render({settings, home: '/__test_home__/other', pins: []}));
