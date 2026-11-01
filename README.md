@@ -1,5 +1,7 @@
 # AgentRoute · 智能体分流规则
 
+> **Fork 定制入口：**当前分支的[网络环境适配与恢复说明](custom/network/README.md)保存可公开的AI分流、浏览器UDP、离线生成与换机验收工具。`master`保留上游；本层不包含订阅/密钥，不会自动改动现网。
+
 [![自动构建](https://github.com/ryuu-restart/agent-route/actions/workflows/run.yml/badge.svg)](https://github.com/ryuu-restart/agent-route/actions/workflows/run.yml)
 
 **自动更新分流规则，用你自己的节点，交给 Agent 帮你接入。**
