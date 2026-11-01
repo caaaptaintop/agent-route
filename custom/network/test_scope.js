@@ -24,7 +24,8 @@ for (const p of ['/Applications/Proma.app/Contents/MacOS/Proma','/Applications/C
 const input = {proxies:[{name:'普通节点',type:'http',server:'node.invalid',port:1080}], 'proxy-groups':[{name:'主代理',type:'select',proxies:['普通节点']},{name:'旧业务组',type:'select',proxies:['DIRECT','普通节点']}]};
 const out = apply(input, []);
 assert.deepEqual(out.proxies, input.proxies);
-assert.deepEqual(out['proxy-groups'].filter(g=>g.name!==group), input['proxy-groups']);
+assert.deepEqual(out['proxy-groups'].filter(g=>g.name!==group), input['proxy-groups'].filter(g=>g.name==='主代理'));
+assert(!out['proxy-groups'].some(g=>g.name==='旧业务组'), '无规则/有效引用的旧组应被清理');
 assert.equal(out.rules.at(-1),'MATCH,主代理');
 const r = out.rules, reject = r.indexOf('RULE-SET,sr-reject,REJECT'), regular = r.indexOf('RULE-SET,sr-proxy,主代理');
 const udp = browserPaths.map(p=>r.indexOf('AND,((NETWORK,UDP),(PROCESS-PATH-REGEX,'+p+')),主代理'));

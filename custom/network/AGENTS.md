@@ -13,12 +13,15 @@
 
 - 默认专线仅Claude、Codex/OpenAI、Gemini、Antigravity；其他AI按普通规则，国内AI/Apple有明确直连与DNS例外。不得因新增AI工具重新扩大为所有应用、通用解释器或整个Google API；业务直连不能越过保留的浏览器UDP保护。
 
+- 用户选择完整方案并清理无用组时，以实际引用闭包判断：主代理/AI组及全部节点的dialer依赖必须保留；删除不可达业务/包装组，不改变规则/DNS、节点或保留组成员。刷新后不得重新引入无用组。
+
 ## 验证
 
 ```bash
 node custom/network/test_prepare.js
 node custom/network/test.js
 node custom/network/test_scope.js
+node custom/network/test_groups.js
 ```
 
 测试使用合成节点与虚构home，禁止引入生产缓存；新增功能先写反例。上游源码变更另运行根维护说明要求的测试/契约与原生验证。文件检查、生成成功、规则加载、真实网络、真实App、跨设备恢复是不同验收层次。

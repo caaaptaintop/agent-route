@@ -246,6 +246,23 @@ function arApply(input, pins) {
   add('RULE-SET,sr-proxy,' + primary); add('RULE-SET,sr-direct,DIRECT');
   add('RULE-SET,sr-cn-ip,DIRECT'); add('MATCH,' + primary);
   c.rules = rules;
+  // Only retain groups reachable from effective outbound roots. A group referenced
+  // solely by an unused wrapper is still unused. Keep every node and its nested
+  // dialer dependencies, including nodes that are not currently selected.
+  var retained = Object.create(null);
+  function retain(name) {
+    if (!name || builtin.indexOf(name) >= 0 || retained[name]) return;
+    assert(own(map, name), 'unresolved retained outbound reference');
+    retained[name] = true;
+    var item = map[name];
+    if (own(nodeMap, name)) {
+      if (item['dialer-proxy']) retain(item['dialer-proxy']);
+    } else item.proxies.forEach(retain);
+  }
+  // Rules, owned DNS policies and provider downloads use these same two roots.
+  retain(primary); retain(AR_AI_GROUP);
+  nodes.forEach(function(n) { if (n['dialer-proxy']) retain(n['dialer-proxy']); });
+  c['proxy-groups'] = groups.filter(function(g) { return !!retained[g.name]; });
   return c;
 }
 if (typeof module !== 'undefined' && module.exports) {
