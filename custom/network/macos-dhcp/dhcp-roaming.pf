@@ -1,0 +1,5 @@
+# DHCPv4 roaming: privileged root client socket, no fixed gateway/interface.
+# This is not a configd/PID allow-list and does not create PF state.
+# Replies may target an address not assigned yet (unicast OFFER/ACK).
+pass out quick inet proto udp from any port 68 to any port 67 user 0 no state label "dhcp_roaming_out"
+pass in quick inet proto udp from any port 67 to any port 68 no state label "dhcp_roaming_in"

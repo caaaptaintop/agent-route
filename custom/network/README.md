@@ -14,6 +14,7 @@
 | `route.template.js` | 完整的Clash Verge局部Script候选；基础AgentRoute分流、AI可信节点绑定、DNS分层、三款浏览器UDP规则 |
 | `prepare.js` | 离线参数化工具；使用本机home生成路径，从显式核实的节点建立本地指纹，生成候选但不安装 |
 | `settings.example.json` | 无凭据的macOS设置示例 |
+| [macOS DHCP 换网候选](macos-dhcp/README.md) | 独立PF层的精确替换工具、两条规则模板、合成测试与安全集成/回退清单；只生成候选，不安装 |
 | `test.js`、`test_prepare.js`、`test_scope.js`、`test_groups.js`、`test_dns_exception.js` | 合成节点安全回归、跨home路径/输出保护及四类AI分流反例 |
 | [恢复与验收](恢复与验收.md) | 换电脑、重装系统或Clash后的恢复顺序、真实验证边界 |
 | [同步上游](同步上游.md) | 源码同步、规则数据更新与生产部署的区别 |
@@ -81,3 +82,4 @@ node custom/network/prepare.js --pins /绝对路径/仓库外/ai-pins.json --out
 - 语法损坏、宿主不执行脚本、错误的导入层次、其他中继/子进程、IPv6、冷启动/休眠、核心退出与PF改写都不是单元测试可以包办的保证。
 - 宿主会吞脚本异常时，仅抛错可能恢复源订阅规则，所以`main`校验失败返回拒绝配置；但这不能替代实际检查脚本执行和最终运行时。
 - 本层**不安装PF、防直连服务、launchd任务、浏览器扩展或自动部署**；不提供旧机器系统防火墙文件供直接搬迁。
+- `macos-dhcp/`独立于上述JS分流/DNS层，只修复受支持的旧DHCP规则块。候选保留原锚点其余本机内容，必须放仓库外；不能把通用两规则模板单独加载为完整PF策略，也不能将源码发布视为设备部署或所有网络验收。
