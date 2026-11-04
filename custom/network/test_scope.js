@@ -11,7 +11,7 @@ const apple = ['apple.com','apple.com.cn','icloud.com','icloud.com.cn','cdn-appl
 const suffix = (host, d) => host === d || host.endsWith('.' + d);
 for (const h of [...shouldBeOrdinary, ...domestic, ...apple, 'drive.google.com','signaler-pa.googleapis.com','drivefrontend-pa.googleapis.com','accounts.google.com','play.googleapis.com'])
  assert(!domains.some(d=>suffix(h,d)), '专线误覆盖：' + h);
-for (const h of ['api.openai.com','codex-cloud-backend.chatgpt.com','ws.chatgpt.com','api.anthropic.com','claude.ai','claude.com','claudeusercontent.com','gemini.google.com','aistudio.google.com','generativelanguage.googleapis.com','aiplatform.googleapis.com','antigravity.google','cloudcode-pa.googleapis.com','daily-cloudcode-pa.googleapis.com','geminiweb-pa.clients.google.com','geminiweb-pa.clients6.google.com','antigravity-pa.googleapis.com','antigravity.googleapis.com','us-central1-aiplatform.googleapis.com'])
+for (const h of ['api.openai.com','codex-cloud-backend.chatgpt.com','ws.chatgpt.com','api.anthropic.com','claude.ai','claude.com','claudeusercontent.com','gemini.google.com','aistudio.google.com','generativelanguage.googleapis.com','aiplatform.googleapis.com','antigravity.google','cloudcode-pa.googleapis.com','daily-cloudcode-pa.googleapis.com','geminiweb-pa.clients.google.com','geminiweb-pa.clients6.google.com','clientservices.googleapis.com','chromegw-pa.googleapis.com','optimizationguide-pa.googleapis.com','antigravity-pa.googleapis.com','antigravity.googleapis.com','us-central1-aiplatform.googleapis.com'])
  assert(domains.some(d=>suffix(h,d)), '缺少四类AI服务：' + h);
 assert(!domains.includes('googleapis.com') && !domains.includes('google.com'));
 assert.deepEqual(new Set(directDomains), new Set([...domestic,...apple]));
@@ -28,18 +28,18 @@ assert.deepEqual(out['proxy-groups'].filter(g=>g.name!==group), input['proxy-gro
 assert(!out['proxy-groups'].some(g=>g.name==='旧业务组'), '无规则/有效引用的旧组应被清理');
 assert.equal(out.rules.at(-1),'MATCH,主代理');
 const r = out.rules, reject = r.indexOf('RULE-SET,sr-reject,REJECT'), regular = r.indexOf('RULE-SET,sr-proxy,主代理');
-const udp = browserPaths.map(p=>r.indexOf('AND,((NETWORK,UDP),(PROCESS-PATH-REGEX,'+p+')),主代理'));
-assert(udp.every(i=>i>reject && i<regular));
+assert.deepEqual(browserPaths, [], '已撤销的浏览器UDP范围必须为空');
+assert(!r.some(rule=>rule.startsWith('AND,')), '不得复活浏览器UDP覆盖');
 for (const d of directDomains) {
  const i = r.indexOf('DOMAIN-SUFFIX,'+d+',DIRECT');
- assert(i>Math.max(...udp) && i<regular, '直连例外不能绕过UDP保护或上游优先：'+d);
+ assert(i>reject && i<regular, '直连例外保持在基础拒绝之后、普通规则之前：'+d);
  assert(out.dns['nameserver-policy']['+.'+d].every(x=>x.endsWith('#DIRECT')), 'DNS没有同步直连：'+d);
 }
 for (const d of domains) {
  const i = r.indexOf('DOMAIN-SUFFIX,'+d+','+group);
- assert(i>reject && i<Math.min(...udp));
+ assert(i>reject && i<regular);
  assert(out.dns['nameserver-policy']['+.'+d].every(x=>x.endsWith('#'+group)));
 }
 for (const d of shouldBeOrdinary) assert(!Object.hasOwn(out.dns['nameserver-policy'],'+.'+d), '移除专线却留下旧DNS覆盖：'+d);
 assert.deepEqual(apply(out, []), out);
-console.log('PASS 四类AI/普通AI/国内AI/Apple/Drive域名，专用进程正反例，DIRECT DNS一致性、UDP保护优先级、节点与分组保持、幂等');
+console.log('PASS 四类AI/普通AI/国内AI/Apple/Drive域名，专用进程正反例，DIRECT DNS一致性、无浏览器UDP覆盖、节点与分组保持、幂等');

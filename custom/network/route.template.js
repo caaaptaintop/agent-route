@@ -15,6 +15,9 @@ var AR_AI_DOMAINS = [
   'generativelanguage.googleapis.com', 'aiplatform.googleapis.com',
   'us-central1-aiplatform.googleapis.com', 'alkalimakersuite-pa.clients6.google.com',
   'geminiweb-pa.clients.google.com', 'geminiweb-pa.clients6.google.com',
+  // Chrome Gemini also uses browser eligibility/Variations and optimization services.
+  // These specific shared service hosts include non-Gemini Chrome requests; never widen to googleapis.com.
+  'clientservices.googleapis.com', 'chromegw-pa.googleapis.com', 'optimizationguide-pa.googleapis.com',
   'antigravity.google', 'antigravity-pa.googleapis.com', 'antigravity.googleapis.com',
   'cloudcode-pa.googleapis.com', 'daily-cloudcode-pa.googleapis.com',
   'daily-cloudcode-pa.sandbox.googleapis.com'
@@ -38,8 +41,8 @@ var AR_DIRECT_DOMAINS = AR_DOMESTIC_AI_DOMAINS.concat(AR_APPLE_DOMAINS);
 // Bundle scopes are parameterized by prepare.js and require per-device validation.
 var AR_AI_PROCESS_PATHS = /* AI_PROCESS_PATHS */ [];
 
-// Browser public UDP must not fall through to ordinary domestic DIRECT rules.
-// Native chat/meeting apps and Safari's shared WebKit process are intentionally excluded.
+// Browser UDP override withdrawn on 2026-11-03; prepare.js must keep this empty.
+// Ordinary business/private/direct routing remains unchanged; no WebRTC protection claim.
 var AR_BROWSER_UDP_PATHS = /* BROWSER_UDP_PATHS */ [];
 
 function main(config) {
@@ -197,6 +200,8 @@ function arApply(input, pins) {
   // Cloudflare returns SERVFAIL for this zone; AliDNS resolves it. Keep the
   // exception DNS-only: existing cn-ip routing decides the actual outbound.
   policy['+.mohurd.gov.cn'] = directDNS;
+  // Government-domain DNS only; preserve existing outbound routing.
+  policy['+.gov.cn'] = directDNS;
   // Explicit service suffix policies take precedence over domain rule-set policies.
   policy['+.lan'] = ['system']; policy['+.local'] = ['system']; policy['+.home.arpa'] = ['system'];
   policy['rule-set:sr-private'] = ['system'];
@@ -235,12 +240,7 @@ function arApply(input, pins) {
   add('RULE-SET,sr-reject,REJECT');
   AR_AI_DOMAINS.forEach(function(d) { add('DOMAIN-SUFFIX,' + d + ',' + AR_AI_GROUP); });
   AR_AI_PROCESS_PATHS.forEach(function(p) { add('PROCESS-PATH-REGEX,' + p + ',' + AR_AI_GROUP); });
-  // Preserve private/reject/AI precedence; only the three browsers' remaining UDP
-  // follows the verified non-DIRECT primary. This also covers nonstandard STUN ports.
-  AR_BROWSER_UDP_PATHS.forEach(function(p) {
-    add('AND,((NETWORK,UDP),(PROCESS-PATH-REGEX,' + p + ')),' + primary);
-  });
-  // Keep browser public UDP protection ahead of business DIRECT exceptions.
+  // No browser-specific UDP override; ordinary business rules apply.
   // Dedicated AI process scopes above also retain priority over these exceptions.
   AR_DIRECT_DOMAINS.forEach(function(d) { add('DOMAIN-SUFFIX,' + d + ',DIRECT'); });
   // Existing AgentRoute direct DNS/bootstrap exceptions remain intentional, not a zero-leak claim.

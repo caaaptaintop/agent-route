@@ -114,15 +114,14 @@ test('宿主入口错误时返回拒绝配置，不抛错令Clash恢复输入',(
  const c=main({rules:['MATCH,DIRECT'],listeners:[{proxy:'DIRECT'}]});assert.equal(c.rules.at(-1),'MATCH,REJECT');assert(!c.listeners);assert.deepEqual(c.proxies,[]);assert.deepEqual(c.dns.nameserver,['rcode://refused']);
 });
 
-test('浏览器UDP规则在AI/private/reject后、普通直连前，不拦截Safari和微信',()=>{
+test('撤防后无浏览器UDP覆盖，基础业务规则仍保留',()=>{
  const c=apply(fixture(),pins),rules=c.rules;
- assert.equal(browserPaths.length,3);
- for(const p of browserPaths){
-  const i=rules.indexOf('AND,((NETWORK,UDP),(PROCESS-PATH-REGEX,'+p+')),'+'主代理');
-  assert(i>rules.indexOf('DOMAIN-SUFFIX,claude.ai,'+group));
-  assert(i>rules.indexOf('RULE-SET,sr-reject,REJECT'));
-  assert(i<rules.indexOf('RULE-SET,sr-direct,DIRECT'));
- }
- for(const p of ['/Applications/Safari.app/Contents/MacOS/Safari','/Applications/WeChat.app/Contents/MacOS/WeChat','/System/Library/Frameworks/WebKit.framework/com.apple.WebKit.Networking'])assert(!browserPaths.some(x=>new RegExp(x).test(p)));
+ assert.deepEqual(browserPaths,[]);
+ assert(!rules.some(r=>r.startsWith('AND,')));
+ assert(rules.includes('DOMAIN-SUFFIX,claude.ai,'+group));
+ assert(rules.includes('RULE-SET,sr-private,DIRECT'));
+ assert(rules.includes('RULE-SET,sr-reject,REJECT'));
+ assert(rules.includes('RULE-SET,sr-direct,DIRECT'));
+ assert.equal(rules.at(-1),'MATCH,主代理');
 });
 console.log('PASS test cases='+count+'; domain suffixes='+domains.length+'; process scopes='+paths.length);

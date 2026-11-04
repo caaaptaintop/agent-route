@@ -33,7 +33,8 @@ function scopes(home) {
       '^' + h + '/\\.local/(bin/claude|share/claude/versions/[0-9]+\\.[0-9]+\\.[0-9]+(-[^/]+)?)$',
       '^' + h + '/\\.claude/downloads/claude-[0-9]+\\.[0-9]+\\.[0-9]+(-[^/]+)?-darwin-(arm64|x64)$'
     ],
-    browser: ['^/Applications/Google Chrome\\.app/Contents/', '^/Applications/Brave Browser\\.app/Contents/', '^/Applications/Tabbit\\.app/Contents/']
+    // Withdrawal is a policy default, not a per-home browser discovery setting.
+    browser: []
   };
 }
 function validatePins(pins) {

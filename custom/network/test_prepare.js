@@ -29,7 +29,7 @@ test('home按正则字面量转义，Claude/Codex命中，不捕获泛应用与�
 test('路径不包含真实使用者或上一个设备的信息', () => {
   const m = inspect(render({settings, home: '/__test_home__/other', pins: []}));
   assert(m.paths.every(p => !p.includes(home)));
-  assert.equal(m.browserPaths.length, 3);
+  assert.equal(m.browserPaths.length, 0, '生成器不得重新添加三浏览器UDP范围');
 });
 test('指纹只含名称和摘要；凭据变化产生不同摘要', () => {
   const pins = fingerprint([node]);
@@ -43,7 +43,7 @@ test('拒绝重复、非独立或非网络节点，不能靠改名重新信任',
   assert.equal(fingerprint([{...node, name: 'other'}])[0].digest, fingerprint([node])[0].digest);
 });
 test('缺少参数、未支持平台、无效pin及未知设置直接拒绝生成', () => {
-  for (const args of [{settings, pins: []}, {settings, home: 'relative', pins: []}, {settings: {...settings, platform: 'windows'}, home, pins: []}, {settings: {...settings, unexpected: true}, home, pins: []}, {settings, home, pins: [{name: 'x', digest: 'bad'}]}]) assert.throws(() => render(args));
+  for (const args of [{settings, pins: []}, {settings, home: 'relative', pins: []}, {settings: {...settings, platform: 'windows'}, home, pins: []}, {settings: {...settings, unexpected: true}, home, pins: []}, {settings: {...settings, browserUdp: true}, home, pins: []}, {settings, home, pins: [{name: 'x', digest: 'bad'}]}]) assert.throws(() => render(args));
 });
 test('额外应用只接受精确路径，拒绝分支绕过、通用解释器和非规范路径', () => {
   for (const p of ['.*node', '^/intended/ai-only$|.*', '^/intended/(?=ai)ai$', '/', '/x,foreign', '/x\n', '/x/../node', '/usr/bin/node', '/usr/bin/bun', '/usr/bin/zsh', '/Applications/Safari.app/Contents/MacOS/Safari']) {
