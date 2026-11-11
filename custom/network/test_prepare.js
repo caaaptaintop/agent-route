@@ -55,6 +55,34 @@ test('额外应用只接受精确路径，拒绝分支绕过、通用解释器�
   assert(added.test(literal));
   for (const p of ['/usr/bin/node', '/usr/bin/bun', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', literal + '/other']) assert(!added.test(p));
 });
+test('六个进程归各产品，显式额外应用归严格IPEqual，重复路径不损坏映射', () => {
+  const m = inspect(render({settings: {...settings, extraAiExecutables: ['/custom/Dedicated AI', '/custom/Dedicated AI']}, home, pins: []}));
+  assert.equal(m.paths.length, 7);
+  const owners = m.paths.map(p => m.pathGroups[p]);
+  assert.deepEqual(Array.from(owners), ['AI-Claude','AI-Codex','AI-Codex','AI-Antigravity','AI-Claude','AI-Claude','IPEqual']);
+  const first = m.paths[0];
+  assert.equal(m.pathGroups[first], 'AI-Claude');
+});
+test('拒绝新旧保留组名作为节点或pin', () => {
+  for (const name of ['IPEqual','AI-Claude-Codex-IPEqual','AI-Claude','AI-Codex','AI-Gemini','AI-Antigravity']) {
+    assert.throws(() => fingerprint([{...node, name}]));
+    assert.throws(() => render({settings, home, pins: [{name, digest: '0'.repeat(64)}]}));
+  }
+});
+test('私有直连仅仓外显式配置，精确主机与DNS不扩后缀，AI媒体冲突拒绝', () => {
+  const defaults = inspect(render({settings, home, pins: []}));
+  assert.deepEqual(Array.from(defaults.serviceDirectHosts), ['dl.google.com','registry.npmjs.org','global.synologydownload.com','download-mem.nowledge.co']);
+  const m = inspect(render({settings: {...settings, extraServiceDirectHosts: ['NAS.Private.Example.', 'nas.private.example']}, home, pins: []}));
+  assert.equal(m.serviceDirectHosts.filter(x => x === 'nas.private.example').length, 1);
+  const out = m.apply({proxies: [node], 'proxy-groups': [{name: '主代理', type: 'select', proxies: [node.name]}]}, []);
+  assert(out.rules.includes('DOMAIN,nas.private.example,DIRECT'));
+  assert(!out.rules.includes('DOMAIN-SUFFIX,nas.private.example,DIRECT'));
+  assert(out.dns['nameserver-policy']['nas.private.example'].every(x => x.endsWith('#DIRECT')));
+  assert(!out.dns['nameserver-policy']['+.nas.private.example']);
+  for (const bad of ['https://private.example', '192.0.2.1', '+.private.example', '*.private.example', 'bad,example', 'bad#example', 'bad\nexample', '-bad.example', 'singlelabel', 'a..example', 'openai.com', 'api.openai.com', 'x.com', 'grok.com', 'pbs.twimg.com', 'nested.pbs.twimg.com']) {
+    assert.throws(() => render({settings: {...settings, extraServiceDirectHosts: [bad]}, home, pins: []}), bad);
+  }
+});
 test('只创建外部新文件0600，拒绝仓库内输出和覆盖原文件', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'network-prepare-test-'));
   try {

@@ -16,7 +16,8 @@
 | `settings.example.json` | 无凭据的macOS设置示例 |
 | [显式可信源入口轮换](subscription/README.md) | 原HTTPS源重新验证、固定策略基线/私有授权PIN账本、受控发布的通用模块/API与合成测试；非默认自动任务 |
 | [历史：macOS DHCP 换网候选](macos-dhcp/README.md) | 保留独立PF层的离线工具与合成测试；已撤防设备不得按历史教程重新布防 |
-| `test.js`、`test_prepare.js`、`test_scope.js`、`test_groups.js`、`test_dns_exception.js`、`test_browser_udp.js` | 合成节点、参数化路径、AI范围、政府DNS与浏览器UDP撤销回归 |
+| `test*.js`、`fixture-policy.js` | 十套离线JS测试；合成节点/home、四AI独立选择、X账号/媒体、精确业务DNS、引用闭包与撤防回归 |
+| [Clash iOS](Clash-iOS.md) | ProjectClash Clash Client私有导入与手机验收边界，不发布完整配置 |
 | [恢复与验收](恢复与验收.md) | 换电脑、重装系统或Clash后的恢复顺序、真实验证边界 |
 | [同步上游](同步上游.md) | 源码同步、规则数据更新与生产部署的区别 |
 | [版本变更与官方升级](版本变更与官方升级.md) | 撤防、Chrome Gemini、政府DNS及官方2.5.10升级的配置保留与恢复边界 |
@@ -26,14 +27,16 @@
 
 ## 策略结构
 
-1. 节点引导、本地/私网、private、reject优先；四类AI的域名/专用进程其次；国内AI与Apple明确直连例外、普通proxy/direct/国内IP/最终代理在后。没有浏览器专用UDP覆盖。
-2. 默认专线范围仅为**Claude、Codex/OpenAI、Gemini、Antigravity**。`AI-Claude-Codex-IPEqual`为兼容选择保留旧名，仅允许完整传输摘要匹配的独立节点；无匹配时仅`REJECT`，不加入普通节点或DIRECT。Proma、ChatGPT主程序、Grok Bot、Magpie、Codenotch不再按整个进程强制专线。
-3. 国内AI的明确域名及Apple服务，包括iCloud内容、App Store/音乐等，设为DIRECT，并同步DIRECT DNS。未列出的国际API变体和其他AI回到普通AgentRoute；需要代理时跟随`主代理`，仍允许手选其他出口，不锁死某个供应商。
-4. 专线域名DNS绑专线组；普通默认解析跟主代理；内网及节点引导保留本地/直连例外。仅进程识别的未知目的不保证专线DNS，不把DoH加密等同出口正确。
+1. 节点引导、本地/私网、private、reject优先；三个X媒体后缀、账号域名、四类AI域名/专用进程其次；国内AI/Apple与明确业务DIRECT例外、普通proxy/direct/国内IP/最终代理在后。媒体必须先于父级`twimg.com`；没有浏览器专用UDP覆盖。
+2. **Claude、Codex/OpenAI、Gemini、Antigravity**分别对应`AI-Claude`、`AI-Codex`、`AI-Gemini`、`AI-Antigravity`四个`select`，成员顺序均为`[IPEqual, 主代理]`。首项只是新组初始顺序，不覆盖客户端缓存/后续手选；显式选主代理跟随主代理选择，不是自动故障回落。旧严格组`AI-Claude-Codex-IPEqual`迁移为`IPEqual`，仅允许完整传输摘要匹配的独立节点，无匹配时仅`REJECT`，不混入普通节点/DIRECT。既有六个进程范围按产品归属，不增加整个Proma、ChatGPT主程序、Grok Bot、Magpie、Codenotch、浏览器或通用node/bun捕获。
+3. `x.com`、`twitter.com`、`t.co`、`x.ai`、`grok.com`、`twimg.com`六个账号后缀固定严格`IPEqual`，不跟随四个AI产品组手选；`video.twimg.com`、`abs.twimg.com`、`pbs.twimg.com`三个后缀及其子域优先主代理，DNS同步分离。国内AI/Apple明确DIRECT；WPS/飞书/WorkBuddy/CodeBuddy/金山文档五个后缀与模板列出的四个公共下载/包主机显式DIRECT，个人NAS/新闻主机不作公开默认。其余AI沿用普通规则，不按“AI”标签扩大专线。
+4. 四类AI的既有域名、进程和DNS绑定各自产品组；账号/媒体/业务DNS分别绑定各自出口。普通默认解析跟主代理，内网/节点引导保留本地例外。仅进程命中的未知目的不保证产品DNS；不注入整个`cloudflare.com`或泛`claude`关键词。同一节点不代表服务商保证公网IP永远不变。
 5. Claude桌面/Code原生版本/链接/bootstrap、ChatGPT包内的Codex Service与CLI、Antigravity官方bundle有精确范围；不捕获通用node/bun、终端、浏览器或仅凭名称为Gemini的其他程序。预备路径不代表设备已安装或真实验收。
 6. 2026-11-03撤销Chrome/Brave/Tabbit专用UDP路由；公开模板与离线生成器的浏览器路径列表均为空，刷新不应恢复旧规则。浏览器UDP回到普通业务分流，本层不安装Guard/PF、SGID身份、浏览器策略或扩展，也不声称WebRTC已受保护。根目录普通接入流程中的固定WebRTC限制不应覆盖此完整方案的撤防选择。
-7. Chrome内置Gemini需要的`clientservices.googleapis.com`、`chromegw-pa.googleapis.com`、`optimizationguide-pa.googleapis.com`纳入现有AI组及对应DNS，沿用具体服务主机的后缀策略，不扩展为`googleapis.com`或`google.com`总后缀。它们是共享Chrome服务，可能连带非Gemini请求。Google Drive及其他普通Google业务仍跟随主代理。部分OpenAI/ChatGPT、Vertex及cloudcode端点同样跨产品共享，不能按加密URL区分所有使用者；未列地区API需核验补齐。
+7. Chrome内置Gemini需要的`clientservices.googleapis.com`、`chromegw-pa.googleapis.com`、`optimizationguide-pa.googleapis.com`纳入`AI-Gemini`及对应DNS，沿用具体服务主机的后缀策略，不扩展为`googleapis.com`或`google.com`总后缀。它们是共享Chrome服务，可能连带非Gemini请求。Google Drive及其他普通Google业务仍跟随主代理。部分OpenAI/ChatGPT、Vertex及cloudcode端点同样跨产品共享，不能按加密URL区分所有使用者；未列地区API需核验补齐。
 8. 默认应用路径在`/Applications`，原生CLI按home参数化。其他目录、安装方式、OS或新增子进程需再适配。无生效规则/有效依赖的旧业务组与包装组会自动删除；按主代理、AI组和全部节点dialer引用递归保留有用组，不按品牌名盲删地区组，也不删除节点。
+
+自有分组更名同时迁移组成员及节点`dialer-proxy`中的旧别名，不更改节点端点/认证，也不把链式节点纳入严格PIN组。四产品组重建后再检查完整引用图，包括未选中的节点、间接包装组、悬空和循环；不能因校验临时半成品而全局拒绝有效配置。这些是公开候选的兼容逻辑，不代表已改写任何运行设备。
 
 政府域名DNS类别：`+.gov.cn`使用境内加密DNS，同时保留`+.mohurd.gov.cn`旧例外。这里只调整解析路径，**不是整类政府业务流量DIRECT**；不添加政府流量规则、不硬编码CDN地址，也不扩大到所有`.cn`、共享CDN或其他Google API。实际出站仍由既有规则决定。
 
@@ -50,6 +53,10 @@ node custom/network/test_scope.js
 node custom/network/test_groups.js
 node custom/network/test_dns_exception.js
 node custom/network/test_browser_udp.js
+node custom/network/test_claude_paths.js
+node custom/network/test_service_direct.js
+node custom/network/test_account_routes.js
+node custom/network/test_ai_groups.js
 ```
 
 下列命令只说明接口，不应将占位路径直接当作本机路径。可让Agent根据实际设备准备仓库外目录，不要求用户记住命令。
@@ -69,7 +76,9 @@ node custom/network/prepare.js --trust-source /绝对路径/仓库外/verified-n
 node custom/network/prepare.js --pins /绝对路径/仓库外/ai-pins.json --output /绝对路径/仓库外/overlay.js
 ```
 
-额外专用应用路径会扩展“仅四类AI”的默认范围，必须单独明确认可；可在仓库外复制设置示例后，通过`--settings /绝对路径/仓库外/settings.json`的`extraAiExecutables`明确提供。只接受精确可执行文件绝对路径，内部转义后生成锚定规则；不接受用户正则，避免顶层分支逃逸和RE2兼容问题。通用node/bun、Shell、下载器及浏览器执行文件会被拒绝。
+额外专用应用路径会扩展默认六个进程范围，必须单独明确认可；可在仓库外复制设置示例后，通过`--settings /绝对路径/仓库外/settings.json`的`extraAiExecutables`明确提供。只接受精确可执行文件绝对路径，内部转义后生成锚定规则；不接受用户正则，避免顶层分支逃逸和RE2兼容问题。通用node/bun、Shell、下载器及浏览器执行文件会被拒绝。额外路径仍走严格`IPEqual`，不按文件名猜产品，不自动回落主代理。
+
+设备专属精确直连主机可在同一仓外settings的`extraServiceDirectHosts`中显式配置，例如`["nas.private.example", "news.private.example"]`，默认`[]`。只接受精确域名；拒绝URL/IP/通配符、无效标签及落入AI/账号/媒体后缀的主机。规则为`DOMAIN`、DNS为精确键，不扩大到父域或子域。新版本须重新prepare路径、逐路径产品归属和此列表，不把旧prepared文件改名冒充升级，不重新初始化来源信任来迁移分组。
 
 默认`prepare.js`只接受仓库外输入输出，只创建新文件且权限0600，不覆盖已有文件；不读Keychain、不扫订阅、不访问网络，不写Clash、不改PF/代理开关、不启动应用。另行显式启用的[可信源模块](subscription/README.md)可以在人工初始化后重新验证原HTTPS源并受控发布；它不是默认离线流程的隐式扩展，也不自动重建节点信任。
 

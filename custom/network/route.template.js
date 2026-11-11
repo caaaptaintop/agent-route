@@ -1,27 +1,42 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Portable downstream variant; local trust and paths are supplied by prepare.js.
 // AgentRoute v2: complete, idempotent Clash Verge main; not a post-processing patch.
 // Build injects SHA-256 transport identities from the separately trusted IPEqual cache.
 // Digests cover credentials and protocol options without embedding either in the script.
 var AR_PINNED_NODES = /* PINNED_NODES */ [];
-var AR_AI_GROUP = 'AI-Claude-Codex-IPEqual';
-// Dedicated egress is limited to Claude, Codex/OpenAI, Gemini and Antigravity.
-// OpenAI endpoints are shared with ChatGPT; Vertex endpoints may serve non-Gemini
-// models. TLS service/path sharing cannot be distinguished by these domain rules.
-var AR_AI_DOMAINS = [
-  'openai.com', 'chatgpt.com', 'oaistatic.com', 'oaiusercontent.com',
-  'chat.openai.com.auth0.com', 'anthropic.com', 'claude.ai', 'claude.com', 'claudeusercontent.com',
-  'gemini.google.com', 'aistudio.google.com', 'ai.google.dev', 'makersuite.google.com',
-  'generativelanguage.googleapis.com', 'aiplatform.googleapis.com',
-  'us-central1-aiplatform.googleapis.com', 'alkalimakersuite-pa.clients6.google.com',
-  'geminiweb-pa.clients.google.com', 'geminiweb-pa.clients6.google.com',
-  // Chrome Gemini also uses browser eligibility/Variations and optimization services.
-  // These specific shared service hosts include non-Gemini Chrome requests; never widen to googleapis.com.
-  'clientservices.googleapis.com', 'chromegw-pa.googleapis.com', 'optimizationguide-pa.googleapis.com',
-  'antigravity.google', 'antigravity-pa.googleapis.com', 'antigravity.googleapis.com',
-  'cloudcode-pa.googleapis.com', 'daily-cloudcode-pa.googleapis.com',
-  'daily-cloudcode-pa.sandbox.googleapis.com'
+// Strict IPEqual node selector; preserve the old selector's chosen node at deployment.
+var AR_AI_GROUP = 'IPEqual';
+var AR_LEGACY_AI_GROUP = 'AI-Claude-Codex-IPEqual';
+// Product selectors are independent. IPEqual is FIRST so a new group does not
+// silently change egress; 主代理 is an explicit manual choice, never fallback.
+var AR_AI_SERVICES = [
+  {name: 'AI-Claude', domains: ['anthropic.com', 'claude.ai', 'claude.com', 'claudeusercontent.com']},
+  {name: 'AI-Codex', domains: ['openai.com', 'chatgpt.com', 'oaistatic.com', 'oaiusercontent.com', 'chat.openai.com.auth0.com']},
+  {name: 'AI-Gemini', domains: [
+    'gemini.google.com', 'aistudio.google.com', 'ai.google.dev', 'makersuite.google.com',
+    'generativelanguage.googleapis.com', 'aiplatform.googleapis.com',
+    'us-central1-aiplatform.googleapis.com', 'alkalimakersuite-pa.clients6.google.com',
+    'geminiweb-pa.clients.google.com', 'geminiweb-pa.clients6.google.com',
+    // Existing shared Chrome eligibility/optimization hosts remain Gemini-owned.
+    // This does NOT imply every request on these hosts is Gemini-specific.
+    'clientservices.googleapis.com', 'chromegw-pa.googleapis.com', 'optimizationguide-pa.googleapis.com']},
+  {name: 'AI-Antigravity', domains: [
+    'antigravity.google', 'antigravity-pa.googleapis.com', 'antigravity.googleapis.com',
+    'cloudcode-pa.googleapis.com', 'daily-cloudcode-pa.googleapis.com',
+    'daily-cloudcode-pa.sandbox.googleapis.com']}
 ];
+var AR_ACCOUNT_DOMAINS = ['x.com', 'twitter.com', 't.co', 'x.ai', 'grok.com', 'twimg.com'];
+var AR_AI_DOMAINS = [], AR_AI_DOMAIN_GROUPS = Object.create(null);
+AR_AI_SERVICES.forEach(function(s) {
+  AR_AI_DOMAINS = AR_AI_DOMAINS.concat(s.domains);
+  s.domains.forEach(function(d) { AR_AI_DOMAIN_GROUPS[d] = s.name; });
+});
+AR_AI_DOMAINS = AR_AI_DOMAINS.concat(AR_ACCOUNT_DOMAINS);
+AR_ACCOUNT_DOMAINS.forEach(function(d) { AR_AI_DOMAIN_GROUPS[d] = AR_AI_GROUP; });
+// Shared OpenAI/Vertex/cloudcode TLS service paths cannot be separated by URL
+// path. A pinned node does not imply a permanently unchanged public IP.
+// Explicit public-media exceptions precede the parent twimg.com account rule.
+// Do not generalize this split to all CDNs or claim all media requests lack cookies.
+var AR_MEDIA_DOMAINS = ['video.twimg.com', 'abs.twimg.com', 'pbs.twimg.com'];
 // Explicit domestic services plus the previously direct-listed Qwen/Z.ai hosts.
 // International API variants not listed here follow ordinary AgentRoute rules.
 var AR_DOMESTIC_AI_DOMAINS = [
@@ -36,13 +51,30 @@ var AR_APPLE_DOMAINS = [
   'icloud-content.com', 'applemusic.com', 'itunes.com', 'apple.news', 'apple-dns.net', 'appsto.re'
 ];
 var AR_DIRECT_DOMAINS = AR_DOMESTIC_AI_DOMAINS.concat(AR_APPLE_DOMAINS);
+// Explicit common service exceptions. Keep dedicated AI processes above
+// these rules; do not widen a private NAS or public download host to its suffix.
+var AR_SERVICE_DIRECT_SUFFIXES = ['wps.cn', 'feishu.cn', 'workbuddy.cn', 'codebuddy.cn', 'kdocs.cn'];
+var AR_SERVICE_DIRECT_HOSTS = ['dl.google.com', 'registry.npmjs.org', 'global.synologydownload.com', 'download-mem.nowledge.co'];
+// Device-specific exact hosts are explicit private settings, never public defaults.
+var AR_EXTRA_SERVICE_DIRECT_HOSTS = /* EXTRA_SERVICE_DIRECT_HOSTS */ [];
+AR_SERVICE_DIRECT_HOSTS = AR_SERVICE_DIRECT_HOSTS.concat(AR_EXTRA_SERVICE_DIRECT_HOSTS);
 // Only dedicated application scopes; never all of Proma/ChatGPT/Codenotch,
 // a generic Gemini-named app, node/bun, terminals or browsers.
-// Bundle scopes are parameterized by prepare.js and require per-device validation.
+// An application path is a configured scope, not evidence of installation or validation.
 var AR_AI_PROCESS_PATHS = /* AI_PROCESS_PATHS */ [];
 
-// Browser UDP override withdrawn on 2026-11-03; prepare.js must keep this empty.
-// Ordinary business/private/direct routing remains unchanged; no WebRTC protection claim.
+// prepare.js supplies explicit per-process owners; extra authorized paths use strict IPEqual.
+var AR_AI_PROCESS_GROUPS = /* AI_PROCESS_GROUPS */ [];
+var AR_AI_PATH_GROUPS = Object.create(null);
+if (AR_AI_PROCESS_PATHS.length !== AR_AI_PROCESS_GROUPS.length) throw new Error('AgentRoute: process ownership count mismatch');
+AR_AI_PROCESS_PATHS.forEach(function(p, i) {
+  var target = AR_AI_PROCESS_GROUPS[i];
+  if ([AR_AI_GROUP].concat(AR_AI_SERVICES.map(function(s) { return s.name; })).indexOf(target) < 0) throw new Error('AgentRoute: invalid process owner');
+  AR_AI_PATH_GROUPS[p] = target;
+});
+
+// Browser UDP override withdrawn by user request on 2026-11-03.
+// Ordinary business/private/direct routing remains unchanged.
 var AR_BROWSER_UDP_PATHS = /* BROWSER_UDP_PATHS */ [];
 
 function main(config) {
@@ -119,7 +151,7 @@ function arApply(input, pins) {
     return AR_AI_DOMAINS.some(function(d) { return host === d || host.slice(-(d.length + 1)) === '.' + d; });
   }
   nodes.forEach(function(n) {
-    assert(n && safeName(n.name) && builtin.indexOf(n.name) < 0 && [AR_AI_GROUP, 'All-Subscriptions'].indexOf(n.name) < 0 && !own(map, n.name), 'duplicate/invalid node name');
+    assert(n && safeName(n.name) && builtin.indexOf(n.name) < 0 && [AR_AI_GROUP, AR_LEGACY_AI_GROUP, 'All-Subscriptions'].concat(AR_AI_SERVICES.map(function(s) { return s.name; })).indexOf(n.name) < 0 && !own(map, n.name), 'duplicate/invalid node name');
     assert(allowedTypes.indexOf(n.type) >= 0, 'unsupported/non-network proxy type');
     assert(typeof n.server === 'string' && n.server.length > 0 && !/[\r\n,#]/.test(n.server), 'invalid node endpoint');
     assert(!matchesAI(n.server), 'node endpoint collides with AI domain policy; manual review required');
@@ -145,13 +177,19 @@ function arApply(input, pins) {
     });
     if (matches.length === 1 && aiNodes.indexOf(matches[0].name) < 0) aiNodes.push(matches[0].name);
   });
-  // Preserve the stable group name (and thus eligible saved selections), but reconstruct
-  // members/options so include-all/use/fallback cannot insert other outbound providers.
+  // Reconstruct owned names and migrate eligible references; client selection
+  // persistence is a separate deployment step, never inferred from a code rename.
   var ai = {name: AR_AI_GROUP, type: 'select', proxies: aiNodes.length ? aiNodes.sort() : ['REJECT']};
-  groups = groups.filter(function(g) { return g.name !== AR_AI_GROUP && g.name !== 'All-Subscriptions'; });
-  delete map['All-Subscriptions']; map[AR_AI_GROUP] = ai; groups.push(ai);
+  var ownedNames = [AR_AI_GROUP, AR_LEGACY_AI_GROUP, 'All-Subscriptions'].concat(AR_AI_SERVICES.map(function(s) { return s.name; }));
+  groups = groups.filter(function(g) { return ownedNames.indexOf(g.name) < 0; });
+  ownedNames.forEach(function(n) { delete map[n]; });
+  map[AR_AI_GROUP] = ai; groups.push(ai);
+  function migratedReference(ref) { return ref === 'All-Subscriptions' ? '主代理' : ref === AR_LEGACY_AI_GROUP ? AR_AI_GROUP : ref; }
+  // A node's outbound dependency is a reference too. Keep all transport fields
+  // and the caller's input unchanged, except the explicit owned-name alias.
+  nodes.forEach(function(n) { if (n['dialer-proxy']) n['dialer-proxy'] = migratedReference(n['dialer-proxy']); });
   groups.forEach(function(g) {
-    if (Array.isArray(g.proxies)) g.proxies = g.proxies.map(function(ref) { return ref === 'All-Subscriptions' ? '主代理' : ref; });
+    if (Array.isArray(g.proxies)) g.proxies = g.proxies.map(migratedReference);
     if (g.name === 'IpEqual' || g.name === 'IPEqual::IpEqual') {
       assert(Array.isArray(g.proxies), 'invalid IPEqual group');
       g.proxies = g.proxies.filter(function(n) { return n !== 'DIRECT' && n !== 'REJECT'; });
@@ -175,8 +213,6 @@ function arApply(input, pins) {
     assert(Array.isArray(item.proxies) && item.proxies.length > 0, 'empty proxy group');
     return item.proxies.reduce(function(count, ref) { return count + walk(ref, next, closedOnly); }, 0);
   }
-  groups.forEach(function(g) { walk(g.name, [], false); });
-  nodes.forEach(function(n) { if (n['dialer-proxy']) walk(n.name, [], false); });
   var primary = null;
   ['主代理', 'Proxies', 'IpEqual', 'AgentRoute'].some(function(name) {
     if (!own(map, name) || own(nodeMap, name)) return false;
@@ -184,6 +220,18 @@ function arApply(input, pins) {
     return false;
   });
   assert(primary, 'no verified non-direct primary group; refusing subscription fallback');
+  // Reconstruct owned selectors, rejecting node-name collisions and discarding
+  // subscription fallback/include-all options rather than trusting their lists.
+  AR_AI_SERVICES.forEach(function(s) {
+    var selector = {name: s.name, type: 'select', proxies: [AR_AI_GROUP, primary]};
+    assert(s.name !== primary && s.name !== AR_AI_GROUP, 'product selector cycle');
+    map[s.name] = selector; groups.push(selector);
+  });
+  // Validate the complete rebuilt graph, not a transient map with product
+  // selectors removed. All nodes count, including currently unselected dialers.
+  groups.forEach(function(g) { walk(g.name, [], false); });
+  nodes.forEach(function(n) { if (n['dialer-proxy']) walk(n.name, [], false); });
+  AR_AI_SERVICES.forEach(function(s) { walk(s.name, [], true); });
 
   c.mode = 'rule'; c.ipv6 = false; c['find-process-mode'] = 'always';
   c.profile = Object.assign({}, c.profile || {}, {'store-selected': true, 'store-fake-ip': true});
@@ -195,8 +243,11 @@ function arApply(input, pins) {
   function doh(target) { return ['https://1.1.1.1/dns-query#' + target, 'https://1.0.0.1/dns-query#' + target]; }
   var directDNS = ['https://223.5.5.5/dns-query#DIRECT', 'https://223.6.6.6/dns-query#DIRECT'];
   var policy = {};
-  AR_AI_DOMAINS.forEach(function(d) { policy['+.' + d] = doh(AR_AI_GROUP); });
+  AR_AI_DOMAINS.forEach(function(d) { policy['+.' + d] = doh(AR_AI_DOMAIN_GROUPS[d]); });
+  AR_MEDIA_DOMAINS.forEach(function(d) { policy['+.' + d] = doh(primary); });
   AR_DIRECT_DOMAINS.forEach(function(d) { policy['+.' + d] = directDNS; });
+  AR_SERVICE_DIRECT_SUFFIXES.forEach(function(d) { policy['+.' + d] = directDNS; });
+  AR_SERVICE_DIRECT_HOSTS.forEach(function(d) { policy[d] = directDNS; });
   // Cloudflare returns SERVFAIL for this zone; AliDNS resolves it. Keep the
   // exception DNS-only: existing cn-ip routing decides the actual outbound.
   policy['+.mohurd.gov.cn'] = directDNS;
@@ -238,11 +289,14 @@ function arApply(input, pins) {
   ['::1/128','fc00::/7','fe80::/10','ff00::/8'].forEach(function(ip) { add('IP-CIDR6,' + ip + ',DIRECT,no-resolve'); });
   add('RULE-SET,sr-private,DIRECT');
   add('RULE-SET,sr-reject,REJECT');
-  AR_AI_DOMAINS.forEach(function(d) { add('DOMAIN-SUFFIX,' + d + ',' + AR_AI_GROUP); });
-  AR_AI_PROCESS_PATHS.forEach(function(p) { add('PROCESS-PATH-REGEX,' + p + ',' + AR_AI_GROUP); });
+  AR_MEDIA_DOMAINS.forEach(function(d) { add('DOMAIN-SUFFIX,' + d + ',' + primary); });
+  AR_AI_DOMAINS.forEach(function(d) { add('DOMAIN-SUFFIX,' + d + ',' + AR_AI_DOMAIN_GROUPS[d]); });
+  AR_AI_PROCESS_PATHS.forEach(function(p) { add('PROCESS-PATH-REGEX,' + p + ',' + AR_AI_PATH_GROUPS[p]); });
   // No browser-specific UDP override; ordinary business rules apply.
   // Dedicated AI process scopes above also retain priority over these exceptions.
   AR_DIRECT_DOMAINS.forEach(function(d) { add('DOMAIN-SUFFIX,' + d + ',DIRECT'); });
+  AR_SERVICE_DIRECT_SUFFIXES.forEach(function(d) { add('DOMAIN-SUFFIX,' + d + ',DIRECT'); });
+  AR_SERVICE_DIRECT_HOSTS.forEach(function(d) { add('DOMAIN,' + d + ',DIRECT'); });
   // Existing AgentRoute direct DNS/bootstrap exceptions remain intentional, not a zero-leak claim.
   ['223.5.5.5','223.6.6.6'].forEach(function(ip) { add('IP-CIDR,' + ip + '/32,DIRECT,no-resolve'); });
   ['1.1.1.1','1.0.0.1'].forEach(function(ip) { add('IP-CIDR,' + ip + '/32,' + primary + ',no-resolve'); });
@@ -264,10 +318,11 @@ function arApply(input, pins) {
   }
   // Rules, owned DNS policies and provider downloads use these same two roots.
   retain(primary); retain(AR_AI_GROUP);
+  AR_AI_SERVICES.forEach(function(s) { retain(s.name); });
   nodes.forEach(function(n) { if (n['dialer-proxy']) retain(n['dialer-proxy']); });
   c['proxy-groups'] = groups.filter(function(g) { return !!retained[g.name]; });
   return c;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {apply: arApply, main: main, domains: AR_AI_DOMAINS, directDomains: AR_DIRECT_DOMAINS, domesticDomains: AR_DOMESTIC_AI_DOMAINS, appleDomains: AR_APPLE_DOMAINS, paths: AR_AI_PROCESS_PATHS, browserPaths: AR_BROWSER_UDP_PATHS, group: AR_AI_GROUP, digest: arNodeDigest, sha256: arSha256};
+  module.exports = {apply: arApply, main: main, domains: AR_AI_DOMAINS, services: AR_AI_SERVICES, domainGroups: AR_AI_DOMAIN_GROUPS, pathGroups: AR_AI_PATH_GROUPS, accountDomains: AR_ACCOUNT_DOMAINS, mediaDomains: AR_MEDIA_DOMAINS, directDomains: AR_DIRECT_DOMAINS, serviceDirectSuffixes: AR_SERVICE_DIRECT_SUFFIXES, serviceDirectHosts: AR_SERVICE_DIRECT_HOSTS, domesticDomains: AR_DOMESTIC_AI_DOMAINS, appleDomains: AR_APPLE_DOMAINS, paths: AR_AI_PROCESS_PATHS, browserPaths: AR_BROWSER_UDP_PATHS, group: AR_AI_GROUP, digest: arNodeDigest, sha256: arSha256};
 }

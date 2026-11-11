@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 'use strict';
 const assert = require('assert/strict');
-const Module = require('node:module');
-const {render} = require('./prepare');
-const prepared = new Module(__filename + '.candidate');
-prepared._compile(render({settings: require('./settings.example.json'), home: '/__test_home__', pins: []}), __filename + '.candidate');
-const {apply, main, domains, paths, group, digest, sha256, browserPaths} = prepared.exports;
+const {apply, main, domains, paths, domainGroups, pathGroups, group, digest, sha256} = require('./fixture-policy.js');
 const clone = x => JSON.parse(JSON.stringify(x));
 const sourceNodes = [1,2,3,4].map(i => ({name:'test-'+i,type:'vless',server:'node'+i+'.invalid',port:443,uuid:'00000000-0000-4000-8000-000000000001'}));
 const pins = sourceNodes.map(n => ({name:n.name,digest:digest(n)}));
@@ -35,7 +31,7 @@ test('完整重建：合成节点不被改写',()=>{
 test('reject 在 AI 之前，AI 在普通代理/直连规则之前',()=>{
  const c=apply(fixture(),pins), r=c.rules;
  const reject=r.indexOf('RULE-SET,sr-reject,REJECT'), ordinary=r.indexOf('RULE-SET,sr-proxy,主代理');
- for(const d of domains){const i=r.indexOf('DOMAIN-SUFFIX,'+d+','+group);assert(i>reject&&i<ordinary);}
+ for(const d of domains){const i=r.indexOf('DOMAIN-SUFFIX,'+d+','+domainGroups[d]);assert(i>reject&&i<ordinary);}
  assert(r.indexOf('RULE-SET,sr-private,DIRECT')<reject);
 });
 test('重建AI组去掉动态成员与DIRECT，保留节点选择名称',()=>{
@@ -46,9 +42,9 @@ test('缺组时从已核实来源重建，不靠旧组存在性',()=>{
  const c=fixture();c['proxy-groups']=c['proxy-groups'].filter(g=>g.name!==group);
  assert.equal(ai(apply(c,pins)).proxies.length,4);
 });
-test('无可信IPEqual时仅AI范围REJECT，普通主代理保留',()=>{
+test('无可信IPEqual时专线分支REJECT，显式主代理选择入口保留',()=>{
  const c=apply(fixture(),[]);assert.deepEqual(ai(c).proxies,['REJECT']);assert.equal(c.rules.at(-1),'MATCH,主代理');
- assert(c.dns['nameserver-policy']['+.openai.com'].every(v=>v.endsWith('#'+group)));
+ assert(c.dns['nameserver-policy']['+.openai.com'].every(v=>v.endsWith('#AI-Codex')));
 });
 test('节点端点伪装、链式节点不能进入AI组',()=>{
  const c=fixture();c.proxies[0].server='foreign.invalid';c.proxies[1]['dialer-proxy']='Flower::test';
@@ -77,9 +73,9 @@ test('普通主代理含DIRECT时拒绝，不静默恢复源规则',()=>{
  const c=fixture();c['proxy-groups'][0].proxies.push('DIRECT');assert.throws(()=>apply(c,pins),/primary/);
 });
 test('无适合主代理时抛错，不原样返回配置',()=>assert.throws(()=>apply({rules:['MATCH,DIRECT']},[]),/primary/));
-test('DNS独立拥有：清除源fallback，AI域名绑定IPEqual',()=>{
+test('DNS独立拥有：清除源fallback，四类AI域名绑定各自手选组',()=>{
  const c=apply(fixture(),pins);assert(!c.dns.fallback);assert(!c.dns['fallback-filter']);
- for(const d of domains){assert(c.dns['nameserver-policy']['+.'+d].every(v=>v.endsWith('#'+group)));}
+ for(const d of domains){assert(c.dns['nameserver-policy']['+.'+d].every(v=>v.endsWith('#'+domainGroups[d])));}
  assert(c.dns.nameserver.every(v=>v.endsWith('#主代理')));assert(c.dns['proxy-server-nameserver'].every(v=>v.endsWith('#DIRECT')));
 });
 test('主代理成员与可用手选名称保留；不冒充真实持久选择验证',()=>{
@@ -91,7 +87,7 @@ test('进程范围局限AI应用，不捕获所有浏览器/node/bun',()=>{
  for(const p of ['/usr/local/bin/node','/usr/local/bin/bun','/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/Applications/Proma.app/Contents/MacOS/Proma','/Applications/Grok Bot.app/Contents/MacOS/Grok Bot','/__test_home__/.cache/magpie/bun/1.4.4/magpie-bun'])assert(!patterns.some(r=>r.test(p)));
  for(const p of ['/Applications/Claude.app/Contents/MacOS/Claude','/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex'])assert(patterns.some(r=>r.test(p)));
 });
-test('完整覆写重复执行幂等',()=>{
+test('完整覆写重复执行幂等；真实宿主顺序另由源码和双脚本回放验证',()=>{
  const a=apply(fixture(),pins),b=apply(a,pins),d=apply(b,pins);assert.deepEqual(a,b);assert.deepEqual(b,d);
 });
 test('传输身份包含凭据、WS Host/path及TLS选项，不仅是端点',()=>{
@@ -112,16 +108,5 @@ test('删除订阅hosts映射，避免AI域名被覆写为私网地址',()=>{
 });
 test('宿主入口错误时返回拒绝配置，不抛错令Clash恢复输入',()=>{
  const c=main({rules:['MATCH,DIRECT'],listeners:[{proxy:'DIRECT'}]});assert.equal(c.rules.at(-1),'MATCH,REJECT');assert(!c.listeners);assert.deepEqual(c.proxies,[]);assert.deepEqual(c.dns.nameserver,['rcode://refused']);
-});
-
-test('撤防后无浏览器UDP覆盖，基础业务规则仍保留',()=>{
- const c=apply(fixture(),pins),rules=c.rules;
- assert.deepEqual(browserPaths,[]);
- assert(!rules.some(r=>r.startsWith('AND,')));
- assert(rules.includes('DOMAIN-SUFFIX,claude.ai,'+group));
- assert(rules.includes('RULE-SET,sr-private,DIRECT'));
- assert(rules.includes('RULE-SET,sr-reject,REJECT'));
- assert(rules.includes('RULE-SET,sr-direct,DIRECT'));
- assert.equal(rules.at(-1),'MATCH,主代理');
 });
 console.log('PASS test cases='+count+'; domain suffixes='+domains.length+'; process scopes='+paths.length);

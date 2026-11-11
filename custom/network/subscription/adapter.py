@@ -31,11 +31,16 @@ def _array(text, name):
 
 def validate_template(text):
     source.require(text.count(PIN_MARKER) == 1, 'prepared template requires one empty PIN injection marker')
-    source.require('/* AI_PROCESS_PATHS */' not in text and '/* BROWSER_UDP_PATHS */' not in text,
-                   'prepare platform application paths before enabling trusted publication')
+    source.require(all(marker not in text for marker in ('/* AI_PROCESS_PATHS */', '/* AI_PROCESS_GROUPS */',
+                                                         '/* BROWSER_UDP_PATHS */', '/* EXTRA_SERVICE_DIRECT_HOSTS */')),
+                   'prepare platform application paths and owners before enabling trusted publication')
     paths = _array(text, 'AR_AI_PROCESS_PATHS')
     source.require(bool(paths) and all(isinstance(p, str) and p.startswith('^') for p in paths),
                    'prepared AI process paths must not be empty')
+    owners = _array(text, 'AR_AI_PROCESS_GROUPS')
+    source.require(len(owners) == len(paths) and all(owner in ('IPEqual', 'AI-Claude', 'AI-Codex',
+                                                             'AI-Gemini', 'AI-Antigravity') for owner in owners),
+                   'prepared AI process owners must match paths and known selectors')
     source.require(_array(text, 'AR_BROWSER_UDP_PATHS') == [], 'withdrawn browser UDP scope must remain empty')
     return text
 

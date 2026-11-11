@@ -21,12 +21,14 @@ def profile(server='8.8.8.8', name='line', group='IpEqual'):
 
 PREPARED = ('var AR_PINNED_NODES = [];\n'
             'var AR_AI_PROCESS_PATHS = ["^/__test_home__/dedicated/"];\n'
+            'var AR_AI_PROCESS_GROUPS = ["AI-Claude"];\n'
+            'var AR_EXTRA_SERVICE_DIRECT_HOSTS = [];\n'
             'var AR_BROWSER_UDP_PATHS = [];\n')
 
 
 class SyntheticRoute:
     """Test double for the documented route API, not a full merge implementation."""
-    AI_GROUP = 'AI-Claude-Codex-IPEqual'
+    AI_GROUP = 'IPEqual'
 
     def __init__(self):
         self.compiled = []
@@ -192,6 +194,20 @@ class AdapterTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.build()
         self.assertEqual(self.route.writes, [])
+
+    def test_process_owner_mapping_must_be_prepared_aligned_and_known(self):
+        prepared = a.restore_empty_pin_marker(PREPARED)
+        for owners in ['[]', '["DIRECT"]', '["主代理"]', '["unknown"]', '["AI-Claude","AI-Codex"]',
+                       '/* AI_PROCESS_GROUPS */ []']:
+            with self.subTest(owners=owners):
+                text = prepared.replace('["AI-Claude"]', owners)
+                with self.assertRaises(ValueError):
+                    a.validate_template(text)
+        text = prepared.replace('var AR_EXTRA_SERVICE_DIRECT_HOSTS = [];',
+                                'var AR_EXTRA_SERVICE_DIRECT_HOSTS = /* EXTRA_SERVICE_DIRECT_HOSTS */ [];')
+        with self.assertRaises(ValueError):
+            a.validate_template(text)
+        self.assertEqual(a.validate_template(prepared), prepared)
 
     def test_restore_marker_never_erases_existing_pins(self):
         with self.assertRaises(ValueError):

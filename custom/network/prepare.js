@@ -3,13 +3,14 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const net = require('node:net');
 const policy = require('./route.template');
 const templatePath = path.join(__dirname, 'route.template.js');
 const repoRoot = path.resolve(__dirname, '../..');
 function requireThat(ok, message) { if (!ok) throw new Error(message); }
 function validName(name) {
   return typeof name === 'string' && name.length > 0 && !/[\r\n,#]/.test(name)
-    && !['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'GLOBAL', 'COMPATIBLE', policy.group, 'All-Subscriptions'].includes(name);
+    && !['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'GLOBAL', 'COMPATIBLE', policy.group, 'AI-Claude-Codex-IPEqual', 'All-Subscriptions', ...policy.services.map(s => s.name)].includes(name);
 }
 function escapeRegex(text) { return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function exactExecutableExpression(p) {
@@ -33,6 +34,7 @@ function scopes(home) {
       '^' + h + '/\\.local/(bin/claude|share/claude/versions/[0-9]+\\.[0-9]+\\.[0-9]+(-[^/]+)?)$',
       '^' + h + '/\\.claude/downloads/claude-[0-9]+\\.[0-9]+\\.[0-9]+(-[^/]+)?-darwin-(arm64|x64)$'
     ],
+    owners: ['AI-Claude', 'AI-Codex', 'AI-Codex', 'AI-Antigravity', 'AI-Claude', 'AI-Claude'],
     // Withdrawal is a policy default, not a per-home browser discovery setting.
     browser: []
   };
@@ -60,15 +62,36 @@ function fingerprint(nodes) {
     return {name: n.name, digest: policy.digest(n)};
   });
 }
+function exactServiceHosts(values) {
+  requireThat(Array.isArray(values), 'extraServiceDirectHosts必须为数组');
+  const out = [];
+  for (const value of values) {
+    requireThat(typeof value === 'string' && value.length < 254 && !/[\s\x00-\x1f,#/:*+]/.test(value), '额外直连仅接受精确域名，不接受URL、IP、通配符或分隔符');
+    const host = value.toLowerCase().replace(/\.$/, '');
+    requireThat(!net.isIP(host) && host.split('.').length >= 2 && host.split('.').every(x => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(x)), '额外直连域名无效');
+    requireThat(!policy.domains.concat(policy.mediaDomains).some(d => host === d || host.endsWith('.' + d)), '额外直连不得覆盖AI、账号或媒体策略及其DNS');
+    if (!out.includes(host)) out.push(host);
+  }
+  return out;
+}
 function render({settings, home, pins}) {
   requireThat(settings && typeof settings === 'object' && !Array.isArray(settings)
-    && Object.keys(settings).every(k => ['platform', 'extraAiExecutables'].includes(k)), '设置字段不支持');
+    && Object.keys(settings).every(k => ['platform', 'extraAiExecutables', 'extraServiceDirectHosts'].includes(k)), '设置字段不支持');
   requireThat(settings.platform === 'macos', '此适配层仅验证macOS；其他平台需另外适配');
   requireThat(Array.isArray(settings.extraAiExecutables), 'extraAiExecutables必须显式为数组');
   const p = validatePins(pins), s = scopes(home);
-  s.ai.push(...settings.extraAiExecutables.map(exactExecutableExpression));
+  const entries = new Map(s.ai.map((expression, i) => [expression, s.owners[i]]));
+  for (const expression of settings.extraAiExecutables.map(exactExecutableExpression)) {
+    requireThat(!entries.has(expression) || entries.get(expression) === policy.group, '额外应用不得覆盖既有产品归属');
+    entries.set(expression, policy.group);
+  }
+  const extraHosts = exactServiceHosts(settings.extraServiceDirectHosts === undefined ? [] : settings.extraServiceDirectHosts);
   let text = fs.readFileSync(templatePath, 'utf8');
-  for (const [marker, value] of [['/* PINNED_NODES */ []', p], ['/* AI_PROCESS_PATHS */ []', [...new Set(s.ai)]], ['/* BROWSER_UDP_PATHS */ []', s.browser]]) {
+  for (const [marker, value] of [
+    ['/* PINNED_NODES */ []', p], ['/* AI_PROCESS_PATHS */ []', [...entries.keys()]],
+    ['/* AI_PROCESS_GROUPS */ []', [...entries.values()]], ['/* BROWSER_UDP_PATHS */ []', s.browser],
+    ['/* EXTRA_SERVICE_DIRECT_HOSTS */ []', extraHosts]
+  ]) {
     requireThat(text.split(marker).length === 2, '模板注入位置缺失或重复');
     text = text.replace(marker, () => JSON.stringify(value));
   }

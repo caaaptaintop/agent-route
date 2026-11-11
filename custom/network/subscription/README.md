@@ -45,14 +45,14 @@ state字段如下。这里只列字段语义，不给出可被误用的实物文
 
 另在state同目录派生`<state文件名>.accepted-pins.json`的0600私有授权账本及`.lock`控制锁；二者同样拒绝仓库内路径/符号链接，账本必须绑定相同URL与稳定传输摘要。账本含真实完整PIN，不能提交Git、公开或从未经认证的任意YAML重建。
 
-**不得直接把仓库原始`route.template.js`当作动态发布模板。**先用`prepare.js`和空PIN在仓库外生成平台候选，再调用`adapter.restore_empty_pin_marker(text)`恢复唯一的`/* PINNED_NODES */ []`占位；该函数只接受原本为空的PIN，不清除既有可信摘要。`adapter.validate_template`要求AI进程路径已显式填好且非空、浏览器UDP列表为空，避免静默丢失Claude/Codex等进程覆盖。额外应用路径继续遵守上层授权和精确范围要求。
+**不得直接把仓库原始`route.template.js`当作动态发布模板。**先用`prepare.js`和空PIN在仓库外生成平台候选，再调用`adapter.restore_empty_pin_marker(text)`恢复唯一的`/* PINNED_NODES */ []`占位；该函数只接受原本为空的PIN，不清除既有可信摘要。`adapter.validate_template`要求AI进程路径已显式填好且非空、`AR_AI_PROCESS_GROUPS`逐项对应已知产品组或严格IPEqual、所有注入标记已prepare（仅保留空PIN标记）、浏览器UDP列表为空，避免静默丢失进程或产品归属。额外应用路径仍严格IPEqual；个人精确主机从仓外`extraServiceDirectHosts`参数注入，不提交到公开默认。旧prepared模板须用新版prepare重新生成后再接线，不仅改文件名；此操作不重新初始化来源state，不重信任节点。
 
 ## 集成API契约
 
 `adapter.build_trusted(args, route, validate)`由仓库外私有runner显式调用；不会自行发现设备、profile或账号。
 
 - `args`必须提供`trust_state`、`flower`、`ipequal`、`output`、`backup_dir`这五个绝对路径。`ipequal`必须与state的`source_cache`一致，全部发布目标必须互不重叠，且不得覆盖输入或模板。
-- `route.AI_GROUP`为现有专线组名；不得改变主代理、当前手选或扩大AI范围。
+- `route.AI_GROUP`必须与模板严格组`IPEqual`一致；四产品组为`AI-Claude`/`AI-Codex`/`AI-Gemini`/`AI-Antigravity`，各自显式手选IPEqual或主代理，不作自动回落。旧严格组更名的客户端选择迁移需在独立部署阶段显式处理；本API不操作主代理或当前手选，不扩大默认进程范围。
 - `route.compile_script(template, profile)`返回`(script, pins)`，须以完整节点传输摘要替换唯一PIN占位；不得排除`server`。
 - `route.merge_profiles(flower, ip)`只合并两个明确输入，必须按`Flower::`/`IPEqual::`命名空间解析全部引用、拒绝动态/悬空/循环引用，并保留节点、有效组依赖与手选名称。不得扫描其他缓存。
 - `route.apply_overlay(script, config)`返回完整配置；须拒绝宿主fail-closed配置和执行错误，不能原样退回未受控订阅。编排还会核对全部原可信节点都进入专线组及幂等性。
