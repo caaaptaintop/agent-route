@@ -288,6 +288,7 @@ function arApply(input, pins) {
   ['0.0.0.0/8','10.0.0.0/8','100.64.0.0/10','127.0.0.0/8','169.254.0.0/16','172.16.0.0/12','192.168.0.0/16','224.0.0.0/4'].forEach(function(ip) { add('IP-CIDR,' + ip + ',DIRECT,no-resolve'); });
   ['::1/128','fc00::/7','fe80::/10','ff00::/8'].forEach(function(ip) { add('IP-CIDR6,' + ip + ',DIRECT,no-resolve'); });
   add('RULE-SET,sr-private,DIRECT');
+  add('DOMAIN-SUFFIX,gcn.tuv.com,' + primary);
   add('RULE-SET,sr-reject,REJECT');
   AR_MEDIA_DOMAINS.forEach(function(d) { add('DOMAIN-SUFFIX,' + d + ',' + primary); });
   AR_AI_DOMAINS.forEach(function(d) { add('DOMAIN-SUFFIX,' + d + ',' + AR_AI_DOMAIN_GROUPS[d]); });
